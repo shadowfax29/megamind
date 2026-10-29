@@ -1,0 +1,8 @@
+{
+  "name": "tapmind-agents-foundry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local, sandboxed, approval-gated multi-agent software factory using the OpenCode API",
+  "scripts": { "start": "node foundry/server.js" },
+  "engines": { "node": ">=20" }
+}

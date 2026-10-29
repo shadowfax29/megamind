@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TapMind Agents Foundry</title>
+<style>
+:root{--bg:#f4efe9;--panel:#fbf8f4;--ink:#2b2622;--mute:#8a7f76;--line:#e4dbd1;--accent:#d9552b;--ok:#3f8f5b;--warn:#c98a1b;--err:#b3382c;--brain:#7b5cd6;
+--stageA:#fbf6ef;--stageB:#e9dfd3;--top1:#efe8df;--top2:#f6d9c4;--top3:#e4d9cd;--sideF:#cfc3b6;--sideR:#b9ad9f;--desk:#c9a27f;--deskS:#a98462;--base:#f9f4ee}
+@media (prefers-color-scheme:dark){:root{--bg:#1d1a17;--panel:#262220;--ink:#f0e9e1;--mute:#a09488;--line:#3a342f;--stageA:#2d2824;--stageB:#1a1715;--top1:#3a342f;--top2:#4a392f;--top3:#34302b;--sideF:#25211e;--sideR:#1a1715;--desk:#7a5e46;--deskS:#5a4533;--base:#24201d;--brain:#9d86f0}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,Segoe UI,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+h1,h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:500;margin:0}
+header{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:18px;letter-spacing:.06em;text-transform:uppercase}
+header small{display:block;color:var(--mute);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.chip{font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--mute);background:var(--panel)}
+.chip.on{color:var(--ok);border-color:var(--ok)}
+.spacer{flex:1}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 440px;min-height:0}
+@media (max-width:1000px){main{grid-template-columns:1fr;overflow:auto}}
+.left{padding:12px 16px;display:flex;flex-direction:column;min-height:0;gap:10px}
+.right{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+textarea,input[type=text]{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+button:hover{border-color:var(--ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+button.danger{color:var(--err)}
+button.sm{padding:3px 9px;font-size:12px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.ftabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ft{display:flex;align-items:center;gap:6px;border-radius:99px}
+.ft.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ft .badge{margin:0}
+.task{display:flex;gap:8px}
+.task textarea{flex:1;min-height:52px;height:52px;resize:vertical}
+.task .btns{display:flex;flex-direction:column;gap:6px;width:230px}
+.runbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bar{flex:1;height:6px;background:var(--line);border-radius:9px;overflow:hidden;min-width:120px}.bar i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.legend{font-size:11px;color:var(--mute)}
+/* ---------- 3D world ---------- */
+.stage{position:relative;flex:1;min-height:380px;overflow:hidden;border-radius:16px;background:radial-gradient(ellipse at 50% 40%,var(--stageA),var(--stageB));border:1px solid var(--line);cursor:grab;touch-action:none;user-select:none}
+.stage.panning{cursor:grabbing}
+.tools{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:5}
+.hint{position:absolute;left:12px;bottom:8px;font-size:11px;color:var(--mute);z-index:5;pointer-events:none}
+.world{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
+.world.anim{transition:transform .45s ease}
+.ground{position:absolute;left:-4000px;top:-4000px;width:8000px;height:8000px;transform:translateZ(-30px);background:linear-gradient(var(--line) 1px,transparent 1px) 0 0/60px 60px,linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/60px 60px;opacity:.5}
+.fac{position:absolute;width:0;height:0;transform-style:preserve-3d}
+.fac>*{position:absolute;transform-style:preserve-3d}
+.fbase{left:-30px;top:-30px;width:716px;height:552px;background:var(--base);border:1px solid var(--line);border-radius:6px;transform:translateZ(-6px);cursor:move}
+.fbase .sf{left:0;top:552px;width:716px;height:12px;background:var(--sideF);transform-origin:top;transform:rotateX(-90deg)}
+.fbase .sr{left:716px;top:0;width:12px;height:552px;background:var(--sideR);transform-origin:left;transform:rotateY(90deg)}
+.fac.sel .fbase{border-color:var(--accent);box-shadow:0 0 0 3px rgba(217,85,43,.25)}
+.tile{position:absolute;width:140px;height:140px;transform-style:preserve-3d;cursor:pointer;transition:transform .25s}
+.tile:hover{transform:translateZ(8px)}
+.tile>*{position:absolute;transform-style:preserve-3d}
+.tile .top{inset:0;background:var(--top1);border-radius:3px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+.tile.k2 .top{background:var(--top2)}.tile.k3 .top{background:var(--top3)}
+.tile .sf{left:0;top:140px;width:140px;height:16px;background:var(--sideF);transform-origin:top;transform:rotateX(-90deg)}
+.tile .sr{left:140px;top:0;width:16px;height:140px;background:var(--sideR);transform-origin:left;transform:rotateY(90deg)}
+.tile.sel .top{box-shadow:inset 0 0 0 3px var(--accent)}
+.tile.working .top{box-shadow:inset 0 0 0 3px var(--accent),0 0 28px 4px rgba(217,85,43,.45);animation:glow 1.4s infinite}
+.tile.waiting .top{box-shadow:inset 0 0 0 3px var(--warn),0 0 34px 8px rgba(201,138,27,.6);animation:glow .8s infinite}
+.tile.done .top{box-shadow:inset 0 0 0 3px var(--ok)}
+.tile.error .top{box-shadow:inset 0 0 0 3px var(--err)}
+@keyframes glow{50%{filter:brightness(1.12)}}
+.desk{left:18px;top:62px;width:70px;height:40px;background:var(--desk);transform:translateZ(14px);border-radius:2px}
+.desk::before{content:'';position:absolute;left:0;top:40px;width:70px;height:14px;background:var(--deskS);transform-origin:top;transform:rotateX(-90deg)}
+.desk::after{content:'';position:absolute;left:70px;top:0;width:14px;height:40px;background:var(--deskS);filter:brightness(.85);transform-origin:left;transform:rotateY(90deg)}
+.screen{left:30px;top:66px;width:30px;height:2px;background:#22303a;transform:translateZ(15px)}
+.working .screen{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.bb{width:0;height:0;transform:translateZ(2px) rotateZ(var(--bz,45deg)) rotateX(-60deg);transform-origin:0 0}
+.tile .bb{left:104px;top:100px}
+.bb>*{position:absolute;left:0;bottom:0}
+.shadow{left:-14px;bottom:-4px;width:28px;height:10px;background:rgba(0,0,0,.25);border-radius:50%;filter:blur(2px)}
+.pawn{width:22px;height:50px;left:-11px!important}
+.pawn .body{position:absolute;left:0;bottom:0;width:22px;height:34px;border-radius:11px 11px 6px 6px;background:var(--pc,#6b7f94);box-shadow:inset -4px 0 0 rgba(0,0,0,.15)}
+.pawn .head{position:absolute;left:2px;bottom:32px;width:18px;height:18px;border-radius:50%;background:#f1cfae;box-shadow:inset -3px -2px 0 rgba(0,0,0,.12)}
+.working .pawn{animation:bob .7s ease-in-out infinite}.waiting .pawn{animation:bob .35s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-6px)}}
+.idle .pawn{filter:grayscale(.7) opacity(.75)}
+.alert{display:none;left:12px;bottom:38px;width:18px;height:18px;border-radius:50%;background:var(--warn);color:#fff;font:700 12px/18px system-ui;text-align:center}
+.waiting .alert{display:block;animation:bob .5s infinite}
+.lab{left:-55px;bottom:60px;width:112px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 8px;box-shadow:0 6px 14px rgba(0,0,0,.18);pointer-events:none}
+.lab .n{font-family:Georgia,serif;font-size:11px;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.lab .s{font-size:10px;color:var(--mute);line-height:1.25;max-height:25px;overflow:hidden}
+.lab .m{font-size:9px;color:var(--mute);display:flex;gap:6px;flex-wrap:wrap}
+.num{left:8px;top:8px;font:700 11px system-ui;color:var(--mute);transform:translateZ(1px)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--line);margin-right:5px}
+.working .dot,.dot.working{background:var(--accent);animation:p 1s infinite}.waiting .dot,.dot.waiting{background:var(--warn);animation:p .6s infinite}.done .dot,.dot.done{background:var(--ok)}.error .dot,.dot.error{background:var(--err)}
+@keyframes p{50%{opacity:.3}}
+.fplate{cursor:grab}
+.fplate .pl{left:0;bottom:0;background:var(--ink);color:var(--bg);border-radius:10px;padding:5px 12px;white-space:nowrap;font-size:12px;box-shadow:0 6px 14px rgba(0,0,0,.25)}
+.fplate b{font-family:Georgia,serif;letter-spacing:.08em;text-transform:uppercase;margin-right:8px}
+.fplate .pl .badge{background:var(--warn);color:#fff;border-radius:99px;font-size:10px;padding:1px 7px;margin-left:6px}
+/* the Brain */
+.brainT{position:absolute;width:200px;height:200px;transform-style:preserve-3d;cursor:pointer}
+.brainT>*{position:absolute;transform-style:preserve-3d}
+.brainT .top{inset:0;border-radius:50%;background:radial-gradient(circle,rgba(123,92,214,.35),var(--top3) 70%);box-shadow:0 0 0 3px var(--brain),0 0 40px 6px rgba(123,92,214,.35)}
+.brainT .ring{left:50px;top:50px;width:100px;height:100px;border-radius:50%;border:2px solid var(--brain);opacity:0;transform:translateZ(1px)}
+.brainT.pulse .ring{animation:ring 1.6s ease-out}
+@keyframes ring{0%{opacity:.9;transform:translateZ(1px) scale(.4)}100%{opacity:0;transform:translateZ(1px) scale(2.6)}}
+.brainT.pulse .core{animation:corepulse .8s ease-in-out 2}
+@keyframes corepulse{50%{transform:scale(1.25)}}
+.brainT .bb{left:100px;top:100px}
+.core{left:-26px;bottom:34px;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--brain) 40%,#2a1b6b);box-shadow:0 0 30px 8px rgba(123,92,214,.6);animation:float 3s ease-in-out infinite}
+.orb{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--brain) 55%,#2a1b6b);box-shadow:0 0 12px 2px rgba(123,92,214,.6);animation:float 2.4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-8px)}}
+.blab{left:-70px;bottom:104px;width:140px;background:var(--panel);border:1px solid var(--brain);border-radius:10px;padding:5px 8px;text-align:center;box-shadow:0 6px 14px rgba(0,0,0,.2);pointer-events:none}
+.blab .n{font-family:Georgia,serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--brain)}
+.blab .s{font-size:10px;color:var(--mute)}
+/* right panel */
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-radius:0;background:none;flex:1;padding:11px 2px;color:var(--mute);border-bottom:2px solid transparent;font-size:13px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.badge{background:var(--warn);color:#fff;border-radius:99px;font-size:10px;padding:1px 7px;margin-left:4px}
+.pane{flex:1;overflow:auto;padding:14px;min-height:0}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--bg)}
+.card h3{font-size:14px;margin-bottom:6px}
+.card .who{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);margin-bottom:4px}
+.risk{display:inline-block;background:#fbe3df;color:var(--err);border-radius:6px;font-size:11px;padding:2px 7px;margin:2px 4px 6px 0}
+@media (prefers-color-scheme:dark){.risk{background:#4a2420}}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0;white-space:pre-wrap;word-break:break-word;font:12px/1.4 ui-monospace,Consolas,monospace;max-height:260px;overflow:auto}
+details{margin:6px 0}summary{cursor:pointer;font-size:12px}
+.act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ev{font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px}
+.ev b{min-width:84px;color:var(--mute);font-weight:500;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+.ev.warn span,.ev.error span,.ev.denied span{color:var(--err)}.ev.approved span,.ev.auto span{color:var(--ok)}.ev.brain span{color:var(--brain)}
+.ev span{white-space:pre-wrap;word-break:break-word;min-width:0}
+.empty{color:var(--mute);text-align:center;padding:30px 10px}
+.ag-h{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.ag-av{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;font:700 18px Georgia,serif;color:#fff}
+.ag-h h2{font-size:18px}.ag-st{font-size:12px;color:var(--mute)}
+.ag-sec{margin:12px 0}.ag-sec h4{margin:0 0 4px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.ag-sec ul{margin:0;padding-left:18px}.ag-sec li{margin:2px 0;font-size:13px}
+.ag-sec.ask h4{color:var(--warn)}.ag-sec.no h4{color:var(--err)}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:99px;font-size:11px;padding:1px 9px;margin:0 4px 4px 0;background:var(--bg)}
+.bsec{margin-bottom:16px}.bsec h3{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--brain);margin-bottom:6px;display:flex;justify-content:space-between}
+.bitem{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;background:var(--bg);font-size:12px;display:flex;gap:8px;justify-content:space-between}
+.bitem small{color:var(--mute);display:block}
+.bitem .x{border:0;background:none;color:var(--mute);padding:0 4px}.bitem .x:hover{color:var(--err)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>TapMind Agents Foundry</h1><small>Local factory · sandboxed · you approve every action</small></div>
+  <span class="chip on">runs local · 127.0.0.1</span>
+  <span class="chip" id="chipModel">model</span>
+  <span class="chip" id="chipBrain">brain</span>
+  <span class="spacer"></span>
+  <button class="primary" id="addF">+ Add factory</button>
+</header>
+<main>
+  <section class="left">
+    <div class="ftabs" id="ftabs"></div>
+    <div class="task" id="taskForm">
+      <textarea id="task" placeholder="Describe the feature or project this factory should build, top to bottom."></textarea>
+      <div class="btns"><input type="text" id="seed" placeholder="(optional) local folder to copy in"><button class="primary" id="start">Start the line</button></div>
+    </div>
+    <div class="runbar" id="runbar" hidden>
+      <div style="min-width:0"><b id="runTask"></b><div class="legend" id="runMeta"></div></div>
+      <div class="bar"><i id="prog" style="width:0"></i></div>
+      <button class="danger sm" id="abort">Abort</button><button class="sm" id="newrun" hidden>New run</button>
+    </div>
+    <div class="stage" id="stage">
+      <div class="tools"><button class="sm" id="zin" title="Zoom in">＋</button><button class="sm" id="zout" title="Zoom out">－</button><button class="sm" id="rot" title="Rotate view">⟳</button><button class="sm" id="fit" title="Fit all">Fit</button></div>
+      <div class="world" id="world"><div class="ground"></div></div>
+      <div class="hint">Drag the floor to pan · scroll to zoom · drag a factory's base or name plate to move it · click a station to inspect it</div>
+    </div>
+  </section>
+  <aside class="right">
+    <div class="tabs">
+      <button data-t="ap" class="on">Waiting on you<span class="badge" id="apN" hidden>0</span></button>
+      <button data-t="agent">Agent</button>
+      <button data-t="feed">Live feed</button>
+      <button data-t="files">Files</button>
+      <button data-t="brain">Brain</button>
+    </div>
+    <div class="pane" id="p_ap"></div>
+    <div class="pane" id="p_agent" hidden></div>
+    <div class="pane" id="p_feed" hidden></div>
+    <div class="pane" id="p_files" hidden></div>
+    <div class="pane" id="p_brain" hidden></div>
+  </aside>
+</main>
+<script>
+const ROOMS=[
+ ['cartographer','Cartographer',1],['spec','Spec',1],['architect','Architect',1],['design','Design',1],
+ ['planner','Planner',2],['gate','Gate A',3],['test_author','Test Author',2],['coder','Coder',2],
+ ['review','Review & Fix',2],['qa','QA',1],['handoff','Handoff',1],['ship','Ship → GitHub',3]];
+const PC={cartographer:'#5b8a72',spec:'#6b7f94',architect:'#8a6fa8',design:'#c4707f',planner:'#c98a1b',gate:'#d9552b',test_author:'#4f9aa8',coder:'#3f6fb5',review:'#a8704f',qa:'#3f8f5b',handoff:'#7a7f4f',ship:'#2b2622'};
+const PITCH=164,COLS=4,FW=716,FH=552,BX=-340,BY=170;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let snap=null,events=[],sel=null,selAgent=null,profiles=null,filterAgent=null,tab='ap',brainData=null,showForm={},drafts={},dragging=null;
+const typed={};
+const F=id=>snap&&snap.factories.find(f=>f.id===id);
+const api=(p,b)=>fetch(p,{method:'POST',headers:{'content-type':'application/json','x-foundry':'1'},body:JSON.stringify(b||{})}).then(r=>r.json());
+
+/* ============ view (pan / zoom / rotate) ============ */
+let view={x:0,y:0,z:1,rot:-45};
+try{const v=JSON.parse(localStorage.getItem('foundry.view')||'null');if(v&&isFinite(v.z))view=v}catch{}
+const world=$('#world'),stage=$('#stage');
+function applyView(anim){
+  world.classList.toggle('anim',!!anim);
+  world.style.setProperty('--bz',(-view.rot)+'deg');
+  world.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.z}) rotateX(60deg) rotateZ(${view.rot}deg)`;
+  try{localStorage.setItem('foundry.view',JSON.stringify(view))}catch{}
+}
+const proj=(u,v,rot=view.rot)=>{const t=rot*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[u*c-v*s,.5*(u*s+v*c)]};
+function fitView(anim){
+  if(!snap)return;const pts=[];
+  for(const f of snap.factories){pts.push([f.x-30,f.y-30],[f.x+FW,f.y-30],[f.x-30,f.y+FH],[f.x+FW,f.y+FH])}
+  pts.push([BX,BY],[BX+200,BY],[BX,BY+200],[BX+200,BY+200]);
+  const P=pts.map(p=>proj(p[0],p[1]));
+  const minx=Math.min(...P.map(p=>p[0])),maxx=Math.max(...P.map(p=>p[0])),miny=Math.min(...P.map(p=>p[1]))-150,maxy=Math.max(...P.map(p=>p[1]));
+  const w=stage.clientWidth,h=stage.clientHeight;
+  view.z=Math.max(.2,Math.min(1.3,(w-60)/(maxx-minx),(h-40)/(maxy-miny)));
+  view.x=-view.z*(minx+maxx)/2;view.y=-view.z*(miny+maxy)/2;applyView(anim);
+}
+function zoomAt(f,px,py){
+  const z2=Math.max(.2,Math.min(3,view.z*f));const r=z2/view.z;
+  const cx=px-stage.clientWidth/2,cy=py-stage.clientHeight/2;
+  view.x=cx-(cx-view.x)*r;view.y=cy-(cy-view.y)*r;view.z=z2;applyView();
+}
+$('#zin').onclick=()=>zoomAt(1.25,stage.clientWidth/2,stage.clientHeight/2);
+$('#zout').onclick=()=>zoomAt(.8,stage.clientWidth/2,stage.clientHeight/2);
+$('#rot').onclick=()=>{view.rot+=90;fitView(true)};
+$('#fit').onclick=()=>fitView(true);
+stage.addEventListener('wheel',e=>{e.preventDefault();const r=stage.getBoundingClientRect();zoomAt(e.deltaY<0?1.12:.89,e.clientX-r.left,e.clientY-r.top)},{passive:false});
+
+let drag=null,moved=false;
+stage.addEventListener('pointerdown',e=>{
+  if(e.button!==0||e.target.closest('.tools'))return;
+  const fe=e.target.closest('.fplate,.fbase');
+  if(fe){const fid=fe.closest('.fac').dataset.fid,f=F(fid);drag={type:'fac',fid,sx:e.clientX,sy:e.clientY,ox:f.x,oy:f.y}}
+  else drag={type:'pan',sx:e.clientX,sy:e.clientY,ox:view.x,oy:view.y};
+  moved=false;
+});
+addEventListener('pointermove',e=>{
+  if(!drag)return;const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;
+  if(!moved&&Math.hypot(dx,dy)<5)return;moved=true;
+  if(drag.type==='pan'){view.x=drag.ox+dx;view.y=drag.oy+dy;stage.classList.add('panning');applyView()}
+  else{ // screen delta -> plane delta (undo zoom, the 0.5 tilt squash and the Z rotation)
+    const t=view.rot*Math.PI/180,p=dx/view.z,q=dy/(.5*view.z);
+    const f=F(drag.fid);f.x=Math.round((drag.ox+p*Math.cos(t)+q*Math.sin(t))/10)*10;f.y=Math.round((drag.oy-p*Math.sin(t)+q*Math.cos(t))/10)*10;
+    dragging=drag.fid;const el=facEl(drag.fid);el.style.left=f.x+'px';el.style.top=f.y+'px';
+  }
+});
+addEventListener('pointerup',()=>{
+  if(!drag)return;stage.classList.remove('panning');
+  if(drag.type==='fac'){if(moved){const f=F(drag.fid);api(`/api/factories/${f.id}/move`,{x:f.x,y:f.y})}selectFactory(drag.fid)}
+  drag=null;dragging=null;setTimeout(()=>moved=false,0);
+});
+stage.addEventListener('click',e=>{if(moved){e.stopPropagation();e.preventDefault()}},true);
+
+/* ============ world building ============ */
+const facEl=id=>world.querySelector(`.fac[data-fid="${id}"]`);
+function buildFactory(f){
+  const el=document.createElement('div');el.className='fac';el.dataset.fid=f.id;
+  let h='<div class="fbase"><div class="sf"></div><div class="sr"></div></div>';
+  ROOMS.forEach(([id,name,k],i)=>{
+    h+=`<div class="tile k${k} idle" data-id="${id}" style="left:${(i%COLS)*PITCH}px;top:${Math.floor(i/COLS)*PITCH}px"><div class="top"></div><div class="sf"></div><div class="sr"></div><div class="desk"></div><div class="screen"></div><div class="num">${i+1}</div>
+    <div class="bb"><div class="shadow"></div><div class="pawn" style="--pc:${PC[id]}"><i class="body"></i><i class="head"></i></div><div class="alert">!</div><div class="lab"><div class="n"><i class="dot"></i>${esc(name)}</div><div class="s"></div><div class="m"></div></div></div></div>`;
+  });
+  h+='<div class="bb fplate" style="left:0;top:-30px"><div class="pl"><b></b><span></span></div></div>';
+  el.innerHTML=h;
+  el.querySelectorAll('.tile').forEach(t=>t.onclick=()=>{selectFactory(f.id);selAgent=t.dataset.id;renderAll();tabTo('agent')});
+  world.appendChild(el);return el;
+}
+function buildBrain(){
+  const b=document.createElement('div');b.className='brainT';b.id='brainT';b.style.left=BX+'px';b.style.top=BY+'px';
+  let orbs='';[[-70,-10,50],[60,-30,70],[-30,60,90],[40,50,40],[-60,40,70],[10,-60,95]].forEach(([x,y,z],i)=>{orbs+=`<div class="bb" style="left:${100+x}px;top:${100+y}px;pointer-events:none"><div class="orb" style="bottom:${z}px;animation-delay:${i*.35}s"></div></div>`});
+  b.innerHTML=`<div class="top"></div><div class="ring"></div>${orbs}<div class="bb"><div class="shadow" style="width:60px;left:-30px"></div><div class="core"></div><div class="blab"><div class="n">The Brain</div><div class="s" id="brainS"></div></div></div>`;
+  b.onclick=()=>{if(!moved)tabTo('brain')};world.appendChild(b);
+}
+function pulseBrain(){const b=$('#brainT');if(!b)return;b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse')}
+
+function renderWorld(){
+  if(!$('#brainT'))buildBrain();
+  const ids=new Set(snap.factories.map(f=>f.id));
+  world.querySelectorAll('.fac').forEach(el=>{if(!ids.has(el.dataset.fid))el.remove()});
+  for(const f of snap.factories){
+    const el=facEl(f.id)||buildFactory(f);
+    if(dragging!==f.id){el.style.left=f.x+'px';el.style.top=f.y+'px'}
+    el.classList.toggle('sel',f.id===sel);
+    el.querySelectorAll('.tile').forEach(t=>{const id=t.dataset.id,a=f.agents[id]||{};
+      t.className='tile k'+ROOMS.find(r=>r[0]===id)[2]+' '+(a.state||'idle')+(f.id===sel&&selAgent===id?' sel':'');
+      t.querySelector('.s').textContent=a.last||'idle';
+      t.querySelector('.m').innerHTML=(a.model?'<span>'+esc(a.model.split('/').pop())+'</span>':'')+Object.entries(a).filter(([k,v])=>['count','files','maps','specs','designs','tests','attempts','reviews','commits','brain'].includes(k)&&v).map(([k,v])=>'<span>'+esc(k)+' '+v+'</span>').join('')});
+    const pend=f.approvals.length,st=f.run?f.run.status:'idle';
+    el.querySelector('.fplate b').textContent=f.name;
+    el.querySelector('.fplate span').innerHTML=esc(st+(f.run&&f.run.steps.length?` · ${f.run.doneSteps}/${f.run.steps.length}`:''))+(pend?`<span class="badge">${pend} waiting</span>`:'');
+  }
+  const bs=snap.brain;$('#brainS').textContent=`${bs.runs} runs · ${bs.maps} maps · ${bs.lessons} lessons`;
+}
+
+/* ============ controls for the selected factory ============ */
+function selectFactory(id){if(sel!==id){sel=id;filterAgent=null;renderAll()}}
+function renderBar(){
+  const f=F(sel);if(!f)return;
+  $('#ftabs').innerHTML=snap.factories.map(x=>{const st=x.run?x.run.status:'idle';const dot=x.approvals.length?'waiting':st==='running'?'working':st==='done'?'done':st==='failed'?'error':'';
+    return `<button class="ft ${x.id===sel?'on':''}" data-f="${x.id}"><i class="dot ${dot}" style="margin:0"></i>${esc(x.name)}${x.approvals.length?`<span class="badge">${x.approvals.length}</span>`:''}</button>`}).join('')+
+    `<button class="sm" id="ren" title="Rename">✎</button><button class="sm danger" id="del" title="Remove this factory">🗑</button>`;
+  document.querySelectorAll('.ft').forEach(b=>b.onclick=()=>selectFactory(b.dataset.f));
+  $('#ren').onclick=async()=>{const n=prompt('Factory name',f.name);if(n)await api(`/api/factories/${f.id}/move`,{name:n})};
+  $('#del').onclick=async()=>{if(!confirm(`Remove "${f.name}"? Its run folder stays on disk.`))return;const r=await api(`/api/factories/${f.id}/remove`);if(r.error)alert(r.error);else sel=null};
+  const r=f.run,running=r&&r.status==='running';
+  const form=!r||(showForm[f.id]&&!running);
+  $('#taskForm').hidden=!form;$('#runbar').hidden=!r||form;
+  if(document.activeElement!==$('#task'))$('#task').value=drafts[f.id]||'';
+  if(r){$('#runTask').textContent=r.task.slice(0,110);$('#runMeta').textContent=`${r.status} · stack ${r.stack||'?'} · steps ${r.doneSteps||0}/${(r.steps||[]).length} · ${r.workspace}`;
+    const n=(r.steps||[]).length;$('#prog').style.width=(n?100*(r.doneSteps||0)/n:running?5:0)+'%';
+    $('#abort').hidden=!running;$('#newrun').hidden=!!running}
+  $('#chipModel').textContent=[...new Set(Object.values(snap.models))].join(' · ');
+  $('#chipBrain').textContent=`brain ${snap.brain.runs} runs · ${snap.brain.maps} maps · ${snap.brain.lessons} lessons`;
+}
+$('#task').oninput=()=>{if(sel)drafts[sel]=$('#task').value};
+$('#start').onclick=async()=>{const r=await api(`/api/factories/${sel}/runs`,{task:$('#task').value,seed:$('#seed').value.trim()||undefined});if(r.error)return alert(r.error);showForm[sel]=false;drafts[sel]='';tabTo('ap')};
+$('#abort').onclick=()=>confirm('Abort this factory\'s run?')&&api(`/api/factories/${sel}/abort`);
+$('#newrun').onclick=()=>{showForm[sel]=true;renderBar()};
+$('#addF').onclick=async()=>{const n=prompt('Name for the new factory (optional)','');if(n===null)return;const r=await api('/api/factories',{name:n});sel=r.id;setTimeout(()=>fitView(true),250)};
+
+/* ============ right panel ============ */
+function allApprovals(){return snap.factories.flatMap(f=>f.approvals.map(a=>({...a,fname:f.name})))}
+function renderApprovals(){
+  const list=allApprovals(),n=list.length;$('#apN').hidden=!n;$('#apN').textContent=n;
+  const box=$('#p_ap');
+  if(!n){box.dataset.sig='';box.innerHTML='<div class="empty">Nothing waiting on you.<br>Every file write, command, import, Brain write and push will appear here first.</div>';return}
+  const sig=list.map(a=>a.id).join();if(box.dataset.sig===sig)return;box.dataset.sig=sig;
+  box.innerHTML=list.map(a=>`<div class="card" data-id="${a.id}">
+   <div class="who">${esc(a.fname)} · ${esc(a.agent)} · ${esc(a.kind)}</div><h3>${esc(a.title)}</h3>
+   ${a.risks.map(r=>`<span class="risk">⚠ ${esc(r)}</span>`).join('')}
+   ${a.detail?`<pre>${esc(a.detail)}</pre>`:''}
+   ${(a.files||[]).map(f=>`<details ${a.files.length===1?'open':''}><summary>${f.isNew?'＋ new':'✎ overwrite'} <b>${esc(f.path)}</b></summary><pre>${esc(f.content)}</pre></details>`).join('')}
+   ${a.input?`<textarea rows="2" data-in placeholder="${esc(a.input.label)}">${esc(typed[a.id]||'')}</textarea>`:''}
+   <div class="act"><button class="ok" data-a="1">Approve</button>${a.canAlways?`<button data-a="1" data-al="1">Approve all “${esc(a.alwaysKey)}” this run</button>`:''}<button class="danger" data-a="0">Deny</button></div></div>`).join('');
+  box.querySelectorAll('.card').forEach(c=>{const id=c.dataset.id,ta=c.querySelector('[data-in]');
+    if(ta)ta.oninput=()=>typed[id]=ta.value;
+    c.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{c.querySelectorAll('button').forEach(x=>x.disabled=true);
+      await api('/api/approvals/'+id,{approve:b.dataset.a==='1',always:!!b.dataset.al,text:ta?ta.value:''})})});
+}
+function renderFeed(){
+  const box=$('#p_feed');const list=events.filter(e=>(!sel||e.fid===sel)&&(!filterAgent||e.agent===filterAgent)).slice(-160);
+  const atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-40;
+  box.innerHTML=(filterAgent?`<div class="legend" style="margin-bottom:6px">Filtered: ${esc(filterAgent)} <button class="sm" id="clrf">clear</button></div>`:'')+
+    (list.length?list.map(e=>`<div class="ev ${esc(e.kind)}"><b>${esc(e.agent)}</b><span>${esc(e.text)}</span></div>`).join(''):'<div class="empty">No events yet for this factory.</div>');
+  const c=$('#clrf');if(c)c.onclick=()=>{filterAgent=null;renderAll();renderFeed()};
+  if(atEnd)box.scrollTop=box.scrollHeight;
+}
+async function renderFiles(){
+  const box=$('#p_files'),f=F(sel);if(!f||!f.run){box.innerHTML='<div class="empty">No workspace yet.</div>';return}
+  const files=await fetch(`/api/factories/${f.id}/files`).then(r=>r.json());
+  box.innerHTML=`<div class="legend" style="margin-bottom:8px">${esc(f.run.workspace)}</div>`+(files.length?files.map(x=>`<details data-f="${esc(x)}"><summary>${esc(x)}</summary><pre>loading…</pre></details>`).join(''):'<div class="empty">Empty.</div>');
+  box.querySelectorAll('details').forEach(d=>d.ontoggle=async()=>{if(d.open&&!d.dataset.l){d.dataset.l=1;d.querySelector('pre').textContent=await fetch(`/api/factories/${f.id}/file?path=`+encodeURIComponent(d.dataset.f)).then(r=>r.text())}});
+}
+let agKey='';
+async function renderAgent(){
+  const box=$('#p_agent');
+  if(!profiles)profiles=await fetch('/api/agents').then(r=>r.json());
+  const f=F(sel);
+  if(!selAgent||!f){box.innerHTML='<div class="empty">Click any station on the floor to see what that agent can do.</div>';agKey='';return}
+  const p=profiles[selAgent],a=f.agents[selAgent]||{},list=x=>x&&x.length?'<ul>'+x.map(i=>'<li>'+esc(i)+'</li>').join('')+'</ul>':'<div class="legend">—</div>';
+  const key=sel+'|'+selAgent;
+  if(agKey!==key){agKey=key;
+    box.innerHTML=`<div class="ag-h"><div class="ag-av" style="background:${PC[selAgent]}">${esc(p.title[0])}</div><div><h2>${esc(p.title)}</h2><div class="ag-st" id="agSt"></div></div></div>
+    <div style="margin-bottom:8px">${esc(p.role)}</div>
+    <div>${p.agents.map(x=>'<span class="pill">'+esc(x.name)+' · '+esc(x.model)+' · '+(x.tier==='judgement'?'judgement tier':'fast tier')+'</span>').join('')||'<span class="pill">human decision · no model</span>'}</div>
+    <div class="ag-sec"><h4>What it does</h4>${list(p.does)}</div>
+    <div class="ag-sec"><h4>Reads</h4>${list(p.reads)}</div>
+    <div class="ag-sec"><h4>Produces</h4>${list(p.produces)}</div>
+    <div class="ag-sec ask"><h4>Needs your approval for</h4>${list(p.asks)}</div>
+    <div class="ag-sec no"><h4>Cannot</h4>${list(p.cannot)}</div>
+    ${p.agents.map(x=>'<details><summary>System prompt — '+esc(x.name)+'</summary><pre>'+esc(x.system)+'</pre></details>').join('')}
+    <div class="ag-sec"><h4>Live activity</h4><div id="agLive"></div><button class="sm" id="agFeed" style="margin-top:8px">Open full feed for this agent</button></div>`;
+    $('#agFeed').onclick=()=>{filterAgent=selAgent;tabTo('feed')};
+  }
+  const stat=(a.state||'idle')+(a.model?' · '+a.model:'');
+  $('#agSt').innerHTML='<i class="dot '+esc(a.state||'')+'" style="margin-right:6px"></i>'+esc(stat)+(a.last?' — '+esc(a.last):'')+' · in '+esc(f.name);
+  const ev=events.filter(e=>e.fid===sel&&e.agent===selAgent).slice(-8).reverse();
+  $('#agLive').innerHTML=ev.length?ev.map(e=>'<div class="ev '+esc(e.kind)+'"><b>'+esc(e.kind)+'</b><span>'+esc(String(e.text).slice(0,200))+'</span></div>').join(''):'<div class="legend">No activity yet in this factory.</div>';
+}
+let bq='';
+async function renderBrain(){
+  if(tab!=='brain')return;brainData=await fetch('/api/brain').then(r=>r.json());
+  const box=$('#p_brain');const q=bq.toLowerCase();const hit=x=>!q||JSON.stringify(x).toLowerCase().includes(q);
+  const date=t=>t?new Date(t).toLocaleString():'';
+  const sec=(title,kind,items,fmt)=>`<div class="bsec"><h3><span>${title}</span><span>${items.length}</span></h3>${items.filter(hit).reverse().map(x=>`<div class="bitem"><div>${fmt(x)}</div><button class="x" data-k="${kind}" data-id="${x.id}" title="Forget this">✕</button></div>`).join('')||'<div class="legend">Nothing stored yet.</div>'}</div>`;
+  box.innerHTML=`<input type="text" id="bq" placeholder="Search the Brain…" value="${esc(bq)}" style="margin-bottom:12px">`+
+   `<div class="legend" style="margin-bottom:10px">Shared by every factory. Nothing is stored until you approve it at the end of a run. Lessons are injected into every future agent prompt; similar past runs are recalled by the Cartographer.</div>`+
+   sec('Lessons','lessons',brainData.lessons,x=>`${esc(x.text)}<small>${esc(x.factory||'')} · ${date(x.at)}</small>`)+
+   sec('Past runs','runs',brainData.runs,x=>`<b>${esc(x.task)}</b><small>${esc(x.stack)} · QA ${esc(x.verdict)} · ${esc(x.steps)} steps · ${x.files} files · ${esc(x.factory||'')}</small><small>${esc((x.summary||'').slice(0,160))}</small>`)+
+   sec('Codebase maps','maps',brainData.maps,x=>`<b>${esc((x.task||'').slice(0,80))}</b><small>${x.files} files · ${date(x.at)}</small><small>${esc((x.summary||'').slice(0,160))}</small>`);
+  const qi=$('#bq');qi.oninput=()=>{bq=qi.value;const p=qi.selectionStart;renderBrain().then(()=>{const n=$('#bq');n.focus();n.setSelectionRange(p,p)})};
+  box.querySelectorAll('.x').forEach(b=>b.onclick=async()=>{if(confirm('Forget this from the Brain?')){await api('/api/brain/delete',{kind:b.dataset.k,id:b.dataset.id})}});
+}
+function tabTo(t){tab=t;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  for(const k of['ap','agent','feed','files','brain'])$('#p_'+k).hidden=k!==t;
+  if(t==='files')renderFiles();if(t==='feed')renderFeed();if(t==='agent')renderAgent();if(t==='brain')renderBrain()}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>tabTo(b.dataset.t));
+
+function renderAll(){
+  if(!snap)return;
+  if(!sel||!F(sel))sel=snap.factories[0]&&snap.factories[0].id;
+  renderWorld();renderBar();renderApprovals();if(tab==='agent')renderAgent();
+  const n=allApprovals().length;document.title=(n?`(${n}) `:'')+'TapMind Agents Foundry';
+}
+
+/* ============ live connection ============ */
+const es=new EventSource('/api/events');
+es.addEventListener('snapshot',e=>{const prev=snap?allApprovals().length:0;const first=!snap;snap=JSON.parse(e.data);renderAll();
+  if(first)setTimeout(()=>{if(localStorage.getItem('foundry.view'))applyView();else fitView()},50);
+  if(allApprovals().length>prev&&tab!=='ap')tabTo('ap')});
+es.addEventListener('history',e=>{events=JSON.parse(e.data);renderFeed()});
+es.addEventListener('event',e=>{const ev=JSON.parse(e.data);events.push(ev);if(events.length>800)events.shift();if(ev.kind==='brain')pulseBrain();if(tab==='feed')renderFeed();if(tab==='agent'&&ev.agent===selAgent)renderAgent()});
+es.addEventListener('brain',()=>{pulseBrain();if(tab==='brain')renderBrain()});
+applyView();
+</script>
+</body>
+</html>
